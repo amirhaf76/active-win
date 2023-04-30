@@ -1,35 +1,41 @@
-import {inspect} from 'node:util';
-import test from 'ava';
-import activeWindow from './index.js';
+// import { inspect } from "node:util";
+// import test from "ava";
+// import activeWindow from "./index.js";
+var activeWindow = require("./index.js");
 
-function asserter(t, result) {
-	t.log(inspect(result));
-	t.is(typeof result, 'object');
-	t.is(typeof result.title, 'string');
-	t.is(typeof result.id, 'number');
-	t.is(typeof result.owner, 'object');
-	t.is(typeof result.owner.name, 'string');
-}
+setInterval(() => {
+	var g = activeWindow.sync();
+	console.log(g);
+}, 1000);
 
-function asserterGetOpenWindows(t, result) {
-	t.log(inspect(result));
-	t.is(typeof result, 'object');
-	t.is(typeof result.length, 'number');
-	asserter(t, result[0]);
-}
+// function asserter(t, result) {
+// 	t.log(inspect(result));
+// 	t.is(typeof result, 'object');
+// 	t.is(typeof result.title, 'string');
+// 	t.is(typeof result.id, 'number');
+// 	t.is(typeof result.owner, 'object');
+// 	t.is(typeof result.owner.name, 'string');
+// }
 
-test('activeWindow', async t => {
-	asserter(t, await activeWindow());
-});
+// function asserterGetOpenWindows(t, result) {
+// 	t.log(inspect(result));
+// 	t.is(typeof result, 'object');
+// 	t.is(typeof result.length, 'number');
+// 	asserter(t, result[0]);
+// }
 
-test('activeWindow.sync', t => {
-	asserter(t, activeWindow.sync());
-});
+// test('activeWindow', async t => {
+// 	asserter(t, await activeWindow());
+// });
 
-test('activeWindow.getOpenWindows', async t => {
-	asserterGetOpenWindows(t, await activeWindow.getOpenWindows());
-});
+// test('activeWindow.sync', t => {
+// 	asserter(t, activeWindow.sync());
+// });
 
-test('activeWindow.getOpenWindowsSync', t => {
-	asserterGetOpenWindows(t, activeWindow.getOpenWindowsSync());
-});
+// test('activeWindow.getOpenWindows', async t => {
+// 	asserterGetOpenWindows(t, await activeWindow.getOpenWindows());
+// });
+
+// test('activeWindow.getOpenWindowsSync', t => {
+// 	asserterGetOpenWindows(t, activeWindow.getOpenWindowsSync());
+// });

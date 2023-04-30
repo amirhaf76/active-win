@@ -69,7 +69,7 @@ declare namespace activeWindow {
 	}
 
 	interface MacOSResult extends BaseResult {
-		platform: 'macos';
+		platform: "macos";
 
 		owner: MacOSOwner;
 
@@ -80,11 +80,12 @@ declare namespace activeWindow {
 	}
 
 	interface LinuxResult extends BaseResult {
-		platform: 'linux';
+		platform: "linux";
 	}
 
 	interface WindowsResult extends BaseResult {
-		platform: 'windows';
+		platform: "windows";
+		url?: string;
 	}
 
 	type Result = MacOSResult | LinuxResult | WindowsResult;
@@ -146,7 +147,9 @@ declare const activeWindow: {
 
 	Windows are returned in order from front to back.
 	*/
-	getOpenWindows(options?: activeWindow.Options): Promise<activeWindow.Result[]>;
+	getOpenWindows(
+		options?: activeWindow.Options
+	): Promise<activeWindow.Result[]>;
 
 	/**
 	Get metadata about all open windows synchronously.

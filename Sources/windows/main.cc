@@ -9,6 +9,9 @@
 #include <version>
 #include <dwmapi.h>
 #include <algorithm>
+#include <AtlBase.h>
+#include <UIAutomation.h>
+#include <comutil.h>
 
 typedef int(__stdcall *lp_GetScaleFactorForMonitor)(HMONITOR, DEVICE_SCALE_FACTOR *);
 
@@ -90,6 +93,151 @@ std::string getDescriptionFromFileVersionInfo(const BYTE *pBlock) {
 
 	return "";
 }
+
+std::string chrome_geturl(HWND hwnd) {
+
+	CoInitialize(NULL);
+	CComBSTR empty(L"");
+	BSTR r = empty;
+	while (true)
+	{
+		if (!hwnd)
+			break;
+		if (!IsWindowVisible(hwnd))
+			continue;
+
+
+		CComQIPtr<IUIAutomation> uia;
+		if (FAILED(uia.CoCreateInstance(CLSID_CUIAutomation)) || !uia)
+			break;
+
+		CComPtr<IUIAutomationElement> root;
+		if (FAILED(uia->ElementFromHandle(hwnd, &root)) || !root)
+			break;
+
+
+		CComPtr<IUIAutomationCondition> condition;
+
+		//URL's id is 0xC354, or use UIA_EditControlTypeId for 1st edit box
+		uia->CreatePropertyCondition(UIA_ControlTypePropertyId,
+			CComVariant(0xC354), &condition);
+
+		//or use edit control's name instead
+		//uia->CreatePropertyCondition(UIA_NamePropertyId,
+		//      CComVariant(L"Address and search bar"), &condition);
+
+		CComPtr<IUIAutomationElement> edit;
+		if (FAILED(root->FindFirst(TreeScope_Descendants, condition, &edit))
+			|| !edit)
+			break; //maybe we don't have the right tab, continue...
+
+		CComVariant url;
+		if (FAILED(edit->GetCurrentPropertyValue(UIA_ValueValuePropertyId, &url)))
+			break;
+		r = url.bstrVal;
+		break;
+	}
+	CoUninitialize();
+
+	std::wstring ws(r);
+	std::string url = toUtf8(ws);
+
+	return url;
+
+};
+
+std::string mozila_geturl(HWND hwnd)
+{
+	CoInitialize(NULL);
+	CComBSTR empty(L"");
+	BSTR r = empty;
+
+	while (true)
+	{
+		if (!hwnd)
+			break;
+		if (!IsWindowVisible(hwnd))
+			continue;
+
+		CComQIPtr<IUIAutomation> uia;
+		if (FAILED(uia.CoCreateInstance(CLSID_CUIAutomation)) || !uia)
+			break;
+
+		CComPtr<IUIAutomationElement> element;
+		if (FAILED(uia->ElementFromHandle(hwnd, &element)) || !element)
+			break;
+
+		//initialize conditions
+		CComPtr<IUIAutomationCondition> toolbar_cond;
+		uia->CreatePropertyCondition(UIA_ControlTypePropertyId,
+			CComVariant(UIA_ToolBarControlTypeId), &toolbar_cond);
+
+		CComPtr<IUIAutomationCondition> combobox_cond;
+		uia->CreatePropertyCondition(UIA_ControlTypePropertyId,
+			CComVariant(UIA_ComboBoxControlTypeId), &combobox_cond);
+
+		CComPtr<IUIAutomationCondition> editbox_cond;
+		uia->CreatePropertyCondition(UIA_ControlTypePropertyId,
+			CComVariant(UIA_EditControlTypeId), &editbox_cond);
+
+		//find the top toolbars
+		CComPtr<IUIAutomationElementArray> toolbars;
+		if (FAILED(element->FindAll(TreeScope_Children, toolbar_cond, &toolbars)) || !toolbars)
+			break;
+
+		int toolbars_count = 0;
+		toolbars->get_Length(&toolbars_count);
+		for (int i = 0; i < toolbars_count; i++)
+		{
+			CComPtr<IUIAutomationElement> toolbar;
+			if (FAILED(toolbars->GetElement(i, &toolbar)) || !toolbar)
+				continue;
+
+			//find the comboxes for each toolbar
+			CComPtr<IUIAutomationElementArray> comboboxes;
+			if (FAILED(toolbar->FindAll(TreeScope_Children, combobox_cond, &comboboxes)) || !comboboxes)
+				break;
+
+			int combobox_count = 0;
+			comboboxes->get_Length(&combobox_count);
+			for (int j = 0; j < combobox_count; j++)
+			{
+				CComPtr<IUIAutomationElement> combobox;
+				if (FAILED(comboboxes->GetElement(j, &combobox)) || !combobox)
+					continue;
+
+				CComVariant test;
+				if (FAILED(combobox->GetCurrentPropertyValue(UIA_ValueValuePropertyId, &test)))
+					continue;
+
+				//we are interested in a combobox which has no lable
+				if (wcslen(test.bstrVal))
+					continue;
+
+				//find the first editbox
+				CComPtr<IUIAutomationElement> edit;
+				if (FAILED(combobox->FindFirst(TreeScope_Descendants, editbox_cond, &edit)) || !edit)
+					continue;
+
+				CComVariant bstr;
+				if (FAILED(edit->GetCurrentPropertyValue(UIA_ValueValuePropertyId, &bstr)))
+					continue;
+				r = bstr.bstrVal;
+				break;
+			}
+		}
+		break;
+	}
+
+	CoUninitialize();
+	
+	std::wstring ws(r);
+	std::string url = toUtf8(ws);
+
+	return url;
+}
+
+
 
 // Return process path and name
 OwnerWindowInfo getProcessPathAndName(const HANDLE &phlde) {
@@ -209,6 +357,11 @@ Napi::Value getWindowInformation(const HWND &hwnd, const Napi::CallbackInfo &inf
 	activeWinObj.Set(Napi::String::New(env, "owner"), owner);
 	activeWinObj.Set(Napi::String::New(env, "bounds"), bounds);
 	activeWinObj.Set(Napi::String::New(env, "memoryUsage"), memoryCounter.WorkingSetSize);
+	if(ownerInfo.name == "Firefox"){
+		activeWinObj.Set(Napi::String::New(env, "url"), mozila_geturl(hwnd));
+	}else{
+		activeWinObj.Set(Napi::String::New(env, "url"), chrome_geturl(hwnd));
+	}
 
 	return activeWinObj;
 }
